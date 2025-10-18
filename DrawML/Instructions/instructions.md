@@ -185,10 +185,10 @@
 ## 8) Build Steps
 | ID | Step |
 |----|------|
-| **B-001.** Create new SwiftUI project in Xcode (O-001). |✅
-| **B-002.** Add a Home screen (S-001) with buttons for navigation. |✅
-| **B-003.** Build a reusable **Drawing Canvas** (F-001). |
-| **B-004.** Add **Emoji Picker** (F-002) to Train screen (S-002). |
+| **B-001.** Create new SwiftUI project in Xcode (O-001). | ✅
+| **B-002.** Add a Home screen (S-001) with buttons for navigation. | ✅
+| **B-003.** Build a reusable **Drawing Canvas** (F-001). | ✅
+| **B-004.** Add **Emoji Picker** (F-002) to Train screen (S-002). | ✅
 | **B-005.** Add **Add Sample** (F-003) and connect to **D-003**. |
 | **B-006.** Add **Train Model** button (F-004) to update `updateableDrawingClassifier.mlmodel`. |
 | **B-007.** Add **Labels List** (S-004) showing label counts (F-007). |

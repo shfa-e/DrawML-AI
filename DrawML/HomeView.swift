@@ -48,14 +48,17 @@ struct HomeView: View {
                 
                 // Navigation Buttons
                 VStack(spacing: 20) {
-                    NavigationButton(
-                        title: "Train",
-                        subtitle: "Teach your model",
-                        icon: "pencil.circle.fill",
-                        color: .green
-                    ) {
-                        // Navigation to Train screen will be implemented later
+                    NavigationLink(destination: TrainView()) {
+                        NavigationButton(
+                            title: "Train",
+                            subtitle: "Teach your model",
+                            icon: "pencil.circle.fill",
+                            color: .green
+                        ) {
+                            // Navigation handled by NavigationLink
+                        }
                     }
+                    .buttonStyle(PlainButtonStyle())
                     
                     NavigationButton(
                         title: "Playground",

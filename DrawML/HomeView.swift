@@ -8,7 +8,11 @@
 import SwiftUI
 
 struct HomeView: View {
-    @State private var activeModelName = "My First Model" // Placeholder for now
+    @StateObject private var dataManager = DataManager.shared
+    
+    private var activeModelName: String {
+        dataManager.getActiveModel()?.name ?? "No Model"
+    }
     
     var body: some View {
         NavigationView {

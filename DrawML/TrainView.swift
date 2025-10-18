@@ -9,6 +9,7 @@ import SwiftUI
 import PencilKit
 
 struct TrainView: View {
+    @StateObject private var dataManager = DataManager.shared
     @State private var selectedEmoji = ""
     @State private var showingEmojiPicker = false
     @State private var showingError = false
@@ -17,8 +18,15 @@ struct TrainView: View {
     @State private var successMessage = ""
     @State private var canvasRef: DrawingCanvas?
     
-    // Sample storage (placeholder for now)
-    @State private var trainingSamples: [TrainingSample] = []
+    // Computed properties
+    private var activeModel: ModelInfo? {
+        dataManager.getActiveModel()
+    }
+    
+    private var trainingSamples: [TrainingSample] {
+        guard let model = activeModel else { return [] }
+        return dataManager.getTrainingSamples(for: model.id)
+    }
     
     var body: some View {
         NavigationView {
@@ -28,6 +36,12 @@ struct TrainView: View {
                     Text("Train Your Model")
                         .font(.largeTitle)
                         .fontWeight(.bold)
+                    
+                    if let model = activeModel {
+                        Text("Model: \(model.name)")
+                            .font(.headline)
+                            .foregroundColor(.blue)
+                    }
                     
                     Text("Draw something and pick an emoji to teach your model")
                         .font(.subheadline)
@@ -223,6 +237,11 @@ struct TrainView: View {
             return
         }
         
+        guard let model = activeModel else {
+            showError("No active model found")
+            return
+        }
+        
         guard !selectedEmoji.isEmpty else {
             showError("Please pick an emoji first")
             return
@@ -243,18 +262,21 @@ struct TrainView: View {
         
         // Create training sample
         let sample = TrainingSample(
-            id: UUID(),
+            modelId: model.id,
             emoji: selectedEmoji,
             drawing: drawing,
-            canvasSize: CGSize(width: 400, height: 400), // Default canvas size
-            timestamp: Date()
+            canvasSize: CGSize(width: 400, height: 400) // Default canvas size
         )
         
-        trainingSamples.append(sample)
-        showSuccess("Sample added successfully!")
-        
-        // Clear canvas for next drawing
-        clearCanvas()
+        // Add to data manager
+        if dataManager.addTrainingSample(sample) {
+            showSuccess("Sample added successfully!")
+            
+            // Clear canvas for next drawing
+            clearCanvas()
+        } else {
+            showError("Couldn't save sample")
+        }
     }
     
     private func trainModel() {
@@ -281,15 +303,6 @@ struct TrainView: View {
         successMessage = message
         showingSuccess = true
     }
-}
-
-// MARK: - Training Sample Model
-struct TrainingSample: Identifiable {
-    let id: UUID
-    let emoji: String
-    let drawing: PKDrawing
-    let canvasSize: CGSize
-    let timestamp: Date
 }
 
 // MARK: - Training Sample Card

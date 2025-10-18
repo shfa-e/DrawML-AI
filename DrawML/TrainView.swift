@@ -10,6 +10,7 @@ import PencilKit
 
 struct TrainView: View {
     @StateObject private var dataManager = DataManager.shared
+    @StateObject private var trainingManager = ModelTrainingManager.shared
     @State private var selectedEmoji = ""
     @State private var showingEmojiPicker = false
     @State private var showingError = false
@@ -17,6 +18,7 @@ struct TrainView: View {
     @State private var showingSuccess = false
     @State private var successMessage = ""
     @State private var canvasRef: DrawingCanvas?
+    @State private var showingTrainingProgress = false
     
     // Computed properties
     private var activeModel: ModelInfo? {
@@ -38,9 +40,23 @@ struct TrainView: View {
                         .fontWeight(.bold)
                     
                     if let model = activeModel {
-                        Text("Model: \(model.name)")
-                            .font(.headline)
-                            .foregroundColor(.blue)
+                        HStack {
+                            Text("Model: \(model.name)")
+                                .font(.headline)
+                                .foregroundColor(.blue)
+                            
+                            if trainingManager.hasTrainedModel(for: model.id) {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundColor(.green)
+                                    .font(.caption)
+                            }
+                        }
+                        
+                        if let lastTrained = model.lastTrained {
+                            Text("Last trained: \(lastTrained, style: .relative) ago")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
                     }
                     
                     Text("Draw something and pick an emoji to teach your model")
@@ -133,8 +149,14 @@ struct TrainView: View {
                         // Train Model Button
                         Button(action: trainModel) {
                             HStack {
-                                Image(systemName: "brain.head.profile")
-                                Text("Train Model")
+                                if trainingManager.isTraining {
+                                    ProgressView()
+                                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                        .scaleEffect(0.8)
+                                } else {
+                                    Image(systemName: "brain.head.profile")
+                                }
+                                Text(trainingManager.isTraining ? "Training..." : "Train Model")
                             }
                             .font(.headline)
                             .foregroundColor(.white)
@@ -142,10 +164,10 @@ struct TrainView: View {
                             .frame(maxWidth: .infinity)
                             .background(
                                 RoundedRectangle(cornerRadius: 12)
-                                    .fill(canTrainModel ? Color.blue : Color.gray)
+                                    .fill(canTrainModel && !trainingManager.isTraining ? Color.blue : Color.gray)
                             )
                         }
-                        .disabled(!canTrainModel)
+                        .disabled(!canTrainModel || trainingManager.isTraining)
                         .buttonStyle(PlainButtonStyle())
                     }
                     
@@ -219,6 +241,41 @@ struct TrainView: View {
         } message: {
             Text(successMessage)
         }
+        .overlay(
+            // Training Progress Overlay
+            Group {
+                if trainingManager.isTraining {
+                    VStack {
+                        Spacer()
+                        
+                        VStack(spacing: 16) {
+                            ProgressView(value: trainingManager.trainingProgress)
+                                .progressViewStyle(LinearProgressViewStyle())
+                                .frame(width: 200)
+                            
+                            Text("Training Model...")
+                                .font(.headline)
+                                .foregroundColor(.primary)
+                            
+                            Text("\(Int(trainingManager.trainingProgress * 100))% Complete")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding()
+                        .background(
+                            RoundedRectangle(cornerRadius: 16)
+                                .fill(Color(.systemBackground))
+                                .shadow(radius: 10)
+                        )
+                        .padding()
+                        
+                        Spacer()
+                    }
+                    .background(Color.black.opacity(0.3))
+                    .ignoresSafeArea()
+                }
+            }
+        )
     }
     
     // MARK: - Computed Properties
@@ -285,9 +342,33 @@ struct TrainView: View {
             return
         }
         
-        // TODO: Implement actual model training
-        // For now, just show success message
-        showSuccess("Model training completed!")
+        guard let model = activeModel else {
+            showError("No active model found")
+            return
+        }
+        
+        // Start training
+        Task {
+            let success = await trainingManager.trainModel(with: trainingSamples, modelId: model.id)
+            
+            await MainActor.run {
+                if success {
+                    // Update model's last trained date
+                    let updatedModel = ModelInfo(
+                        id: model.id,
+                        name: model.name,
+                        createdDate: model.createdDate,
+                        lastTrained: Date(),
+                        isActive: model.isActive
+                    )
+                    _ = dataManager.updateModel(updatedModel)
+                    
+                    showSuccess(trainingManager.lastTrainingSuccess ?? "Model training completed!")
+                } else {
+                    showError(trainingManager.lastTrainingError ?? "Training failed. Try with more samples.")
+                }
+            }
+        }
     }
     
     private func clearCanvas() {

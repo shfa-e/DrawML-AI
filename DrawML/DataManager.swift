@@ -132,6 +132,10 @@ class DataManager: ObservableObject {
         return models.first { $0.isActive }
     }
     
+    func hasTrainedModel(for modelId: UUID) -> Bool {
+        return ModelTrainingManager.shared.hasTrainedModel(for: modelId)
+    }
+    
     func setActiveModel(_ model: ModelInfo) {
         deactivateAllModels()
         if let index = models.firstIndex(where: { $0.id == model.id }) {

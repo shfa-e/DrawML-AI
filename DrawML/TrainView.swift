@@ -30,6 +30,11 @@ struct TrainView: View {
         return dataManager.getTrainingSamples(for: model.id)
     }
     
+    private var labels: [LabelInfo] {
+        guard let model = activeModel else { return [] }
+        return dataManager.getLabels(for: model.id)
+    }
+    
     var body: some View {
         NavigationView {
             VStack(spacing: 0) {
@@ -191,16 +196,46 @@ struct TrainView: View {
                 .padding()
                 .background(Color(.systemBackground))
                 
+                // Labels Preview
+                if !labels.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Labels (\(labels.count))")
+                                .font(.headline)
+                            
+                            Spacer()
+                            
+                            NavigationLink(destination: LabelsView()) {
+                                Text("View All")
+                                    .font(.subheadline)
+                                    .foregroundColor(.blue)
+                            }
+                        }
+                        .padding(.horizontal)
+                        
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 12) {
+                                ForEach(labels.prefix(10), id: \.id) { label in
+                                    LabelPreviewCard(label: label)
+                                }
+                            }
+                            .padding(.horizontal)
+                        }
+                    }
+                    .padding(.vertical)
+                    .background(Color(.systemGroupedBackground))
+                }
+                
                 // Training Samples Preview
                 if !trainingSamples.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Training Samples (\(trainingSamples.count))")
+                        Text("Recent Samples (\(trainingSamples.count))")
                             .font(.headline)
                             .padding(.horizontal)
                         
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 12) {
-                                ForEach(trainingSamples, id: \.id) { sample in
+                                ForEach(trainingSamples.suffix(10), id: \.id) { sample in
                                     TrainingSampleCard(sample: sample)
                                 }
                             }
@@ -217,8 +252,13 @@ struct TrainView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Labels") {
-                        // Navigate to labels screen (to be implemented)
+                    NavigationLink(destination: LabelsView()) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "tag.fill")
+                            Text("Labels")
+                        }
+                        .font(.subheadline)
+                        .foregroundColor(.blue)
                     }
                 }
             }
@@ -397,6 +437,36 @@ struct TrainingSampleCard: View {
             
             Text(sample.emoji)
                 .font(.caption)
+                .foregroundColor(.secondary)
+        }
+        .frame(width: 60, height: 60)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color(.systemGray6))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+        )
+    }
+}
+
+// MARK: - Label Preview Card
+struct LabelPreviewCard: View {
+    let label: LabelInfo
+    
+    var body: some View {
+        VStack(spacing: 4) {
+            Text(label.emoji)
+                .font(.title2)
+            
+            Text("\(label.sampleCount)")
+                .font(.caption)
+                .fontWeight(.semibold)
+                .foregroundColor(.blue)
+            
+            Text("samples")
+                .font(.caption2)
                 .foregroundColor(.secondary)
         }
         .frame(width: 60, height: 60)

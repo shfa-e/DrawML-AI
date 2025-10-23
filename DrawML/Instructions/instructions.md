@@ -194,7 +194,7 @@
 | **B-007.** Add **Labels List** (S-004) showing label counts (F-007). |✅
 | **B-008.** Add **Model Manager** (S-005) to switch/create models (F-009). |✅
 | **B-009.** Implement **Save & Load** (F-010) for data D-001–D-005. |✅
-| **B-010.** Add **Playground** (S-003) with **live recognition** (F-012). |
+| **B-010.** Add **Playground** (S-003) with **live recognition** (F-012). |✅
 | **B-011.** On recognition: replace sketch with emoji (F-006). |
 | **B-012.** On failed recognition: shake + show message (F-013). |
 | **B-013.** Keep multiple shapes on canvas (F-014) and allow drawing over emojis (F-015). |

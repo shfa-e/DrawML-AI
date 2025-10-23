@@ -64,14 +64,17 @@ struct HomeView: View {
                     }
                     .buttonStyle(PlainButtonStyle())
                     
-                    NavigationButton(
-                        title: "Playground",
-                        subtitle: "Test your model",
-                        icon: "gamecontroller.fill",
-                        color: .orange
-                    ) {
-                        // Navigation to Playground screen will be implemented later
+                    NavigationLink(destination: PlaygroundView()) {
+                        NavigationButton(
+                            title: "Playground",
+                            subtitle: "Test your model",
+                            icon: "gamecontroller.fill",
+                            color: .orange
+                        ) {
+                            // Navigation handled by NavigationLink
+                        }
                     }
+                    .buttonStyle(PlainButtonStyle())
                     
                     NavigationLink(destination: ModelsView()) {
                         NavigationButton(

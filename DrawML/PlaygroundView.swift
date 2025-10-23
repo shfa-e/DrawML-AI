@@ -22,6 +22,9 @@ struct PlaygroundView: View {
     @State private var errorMessage = ""
     @State private var showingShakeMessage = false
     @State private var shakeOffset: CGFloat = 0
+    @State private var shakeRotation: Double = 0
+    @State private var shakeScale: CGFloat = 1.0
+    @State private var shakeMessage = ""
     @State private var recognitionTimer: Timer?
     @State private var isIdle = false
     @State private var showingRecognitionBounds = false
@@ -63,6 +66,9 @@ struct PlaygroundView: View {
                                 onDrawingChanged: handleDrawingChanged,
                                 onError: handleError
                             )
+                            .offset(x: shakeOffset)
+                            .rotationEffect(.degrees(shakeRotation))
+                            .scaleEffect(shakeScale)
                             
                             // Emoji Overlays
                             ForEach(playgroundItems) { item in
@@ -77,7 +83,7 @@ struct PlaygroundView: View {
                             // Shake Animation Overlay
                             if showingShakeMessage {
                                 ShakeMessageOverlay(
-                                    message: "Couldn't classify that drawing.",
+                                    message: shakeMessage,
                                     offset: shakeOffset
                                 )
                             }
@@ -183,6 +189,13 @@ struct PlaygroundView: View {
     private func performRecognition(for model: ModelInfo) {
         isRecognizing = true
         
+        // Check if model is trained
+        guard hasTrainedModel else {
+            isRecognizing = false
+            showShakeMessage(message: "Train your model first!", type: .modelNotTrained)
+            return
+        }
+        
         // Show recognition bounds briefly
         let drawingBounds = canvasView.drawing.bounds
         if !drawingBounds.isEmpty {
@@ -206,10 +219,10 @@ struct PlaygroundView: View {
                     if confidence > 0.7 { // High confidence threshold
                         replaceDrawingWithEmoji(emoji: emoji, confidence: confidence)
                     } else {
-                        showShakeMessage()
+                        showShakeMessage(message: "Couldn't classify that drawing.", type: .lowConfidence)
                     }
                 } else {
-                    showShakeMessage()
+                    showShakeMessage(message: "Couldn't classify that drawing.", type: .noResult)
                 }
             }
         }
@@ -283,19 +296,87 @@ struct PlaygroundView: View {
     
     // MARK: - Shake Animation
     
-    private func showShakeMessage() {
+    private enum ShakeType {
+        case lowConfidence
+        case noResult
+        case modelNotTrained
+    }
+    
+    private func showShakeMessage(message: String, type: ShakeType) {
+        shakeMessage = message
         showingShakeMessage = true
         
-        // Animate shake
-        withAnimation(.easeInOut(duration: 0.1).repeatCount(6, autoreverses: true)) {
-            shakeOffset = 10
+        // Different shake patterns based on failure type
+        switch type {
+        case .lowConfidence:
+            performShakeAnimation(intensity: .medium, duration: 0.6)
+        case .noResult:
+            performShakeAnimation(intensity: .strong, duration: 0.8)
+        case .modelNotTrained:
+            performShakeAnimation(intensity: .light, duration: 0.4)
         }
         
         // Hide message after animation
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
             showingShakeMessage = false
-            shakeOffset = 0
+            resetShakeState()
         }
+    }
+    
+    private enum ShakeIntensity {
+        case light
+        case medium
+        case strong
+    }
+    
+    private func performShakeAnimation(intensity: ShakeIntensity, duration: Double) {
+        let offset: CGFloat
+        let rotation: Double
+        let scale: CGFloat
+        let repeatCount: Int
+        
+        switch intensity {
+        case .light:
+            offset = 5
+            rotation = 2
+            scale = 0.98
+            repeatCount = 3
+        case .medium:
+            offset = 10
+            rotation = 4
+            scale = 0.95
+            repeatCount = 5
+        case .strong:
+            offset = 15
+            rotation = 6
+            scale = 0.92
+            repeatCount = 7
+        }
+        
+        // Reset state first
+        resetShakeState()
+        
+        // Add haptic feedback
+        let impactFeedback = UIImpactFeedbackGenerator(style: intensity == .strong ? .heavy : intensity == .medium ? .medium : .light)
+        impactFeedback.impactOccurred()
+        
+        // Perform shake animation
+        withAnimation(.easeInOut(duration: duration / Double(repeatCount)).repeatCount(repeatCount, autoreverses: true)) {
+            shakeOffset = offset
+            shakeRotation = rotation
+            shakeScale = scale
+        }
+        
+        // Reset after animation completes
+        DispatchQueue.main.asyncAfter(deadline: .now() + duration) {
+            self.resetShakeState()
+        }
+    }
+    
+    private func resetShakeState() {
+        shakeOffset = 0
+        shakeRotation = 0
+        shakeScale = 1.0
     }
     
     // MARK: - Controls
@@ -488,23 +569,45 @@ struct RecognitionBoundsOverlay: View {
 struct ShakeMessageOverlay: View {
     let message: String
     let offset: CGFloat
+    @State private var isVisible = false
+    @State private var pulseScale: CGFloat = 1.0
     
     var body: some View {
         VStack {
             Spacer()
             HStack {
                 Spacer()
-                Text(message)
-                    .font(.caption)
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(Color.red.opacity(0.8))
-                    .cornerRadius(8)
-                    .offset(x: offset)
+                HStack(spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundColor(.white)
+                        .font(.caption)
+                    
+                    Text(message)
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundColor(.white)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color.red.opacity(0.9))
+                        .shadow(color: .red.opacity(0.3), radius: 4, x: 0, y: 2)
+                )
+                .scaleEffect(pulseScale)
+                .offset(x: offset)
                 Spacer()
             }
-            .padding(.bottom, 50)
+            .padding(.bottom, 60)
+        }
+        .opacity(isVisible ? 1 : 0)
+        .animation(.easeInOut(duration: 0.3), value: isVisible)
+        .onAppear {
+            isVisible = true
+            // Add pulsing effect
+            withAnimation(.easeInOut(duration: 0.5).repeatForever(autoreverses: true)) {
+                pulseScale = 1.05
+            }
         }
     }
 }

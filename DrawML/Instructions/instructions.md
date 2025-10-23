@@ -192,7 +192,7 @@
 | **B-005.** Add **Add Sample** (F-003) and connect to **D-003**. |✅
 | **B-006.** Add **Train Model** button (F-004) to update `updateableDrawingClassifier.mlmodel`. |✅
 | **B-007.** Add **Labels List** (S-004) showing label counts (F-007). |✅
-| **B-008.** Add **Model Manager** (S-005) to switch/create models (F-009). |
+| **B-008.** Add **Model Manager** (S-005) to switch/create models (F-009). |✅
 | **B-009.** Implement **Save & Load** (F-010) for data D-001–D-005. |
 | **B-010.** Add **Playground** (S-003) with **live recognition** (F-012). |
 | **B-011.** On recognition: replace sketch with emoji (F-006). |

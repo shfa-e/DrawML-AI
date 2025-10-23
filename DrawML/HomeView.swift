@@ -73,14 +73,17 @@ struct HomeView: View {
                         // Navigation to Playground screen will be implemented later
                     }
                     
-                    NavigationButton(
-                        title: "Models",
-                        subtitle: "Manage your models",
-                        icon: "folder.fill",
-                        color: .purple
-                    ) {
-                        // Navigation to Models screen will be implemented later
+                    NavigationLink(destination: ModelsView()) {
+                        NavigationButton(
+                            title: "Models",
+                            subtitle: "Manage your models",
+                            icon: "folder.fill",
+                            color: .purple
+                        ) {
+                            // Navigation handled by NavigationLink
+                        }
                     }
+                    .buttonStyle(PlainButtonStyle())
                     
                     NavigationButton(
                         title: "Help",

@@ -18,9 +18,20 @@ class DataManager: ObservableObject {
     @Published var classificationHistory: [ClassificationResult] = []
     @Published var playgroundItems: [PlaygroundItem] = []
     
+    // Data persistence state
+    @Published var lastSaveError: String?
+    @Published var lastLoadError: String?
+    @Published var isSaving = false
+    @Published var isLoading = false
+    
     private let userDefaults = UserDefaults.standard
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
+    private let fileManager = FileManager.default
+    
+    // Data version for migration
+    private let currentDataVersion = 1
+    private let dataVersionKey = "dataVersion"
     
     // Keys for UserDefaults
     private enum Keys {
@@ -33,8 +44,16 @@ class DataManager: ObservableObject {
     }
     
     private init() {
+        setupEncoder()
+        performDataMigration()
         loadData()
         createDefaultModelIfNeeded()
+    }
+    
+    private func setupEncoder() {
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = .prettyPrinted
+        decoder.dateDecodingStrategy = .iso8601
     }
     
     // MARK: - Training Samples Management
@@ -257,92 +276,196 @@ class DataManager: ObservableObject {
         savePlaygroundItems()
     }
     
+    // MARK: - Data Migration
+    
+    private func performDataMigration() {
+        let storedVersion = userDefaults.integer(forKey: dataVersionKey)
+        
+        if storedVersion < currentDataVersion {
+            print("Performing data migration from version \(storedVersion) to \(currentDataVersion)")
+            
+            // Future migration logic can be added here
+            // For now, we just update the version
+            userDefaults.set(currentDataVersion, forKey: dataVersionKey)
+        }
+    }
+    
     // MARK: - Data Persistence
     
     private func loadData() {
-        loadTrainingSamples()
-        loadModels()
-        loadLabels()
-        loadAppSettings()
-        loadClassificationHistory()
-        loadPlaygroundItems()
+        isLoading = true
+        lastLoadError = nil
+        
+        do {
+            try loadTrainingSamples()
+            try loadModels()
+            try loadLabels()
+            try loadAppSettings()
+            try loadClassificationHistory()
+            try loadPlaygroundItems()
+            
+            print("Data loaded successfully")
+        } catch {
+            lastLoadError = "Failed to load data: \(error.localizedDescription)"
+            print("Data loading error: \(error)")
+        }
+        
+        isLoading = false
     }
     
-    private func loadTrainingSamples() {
-        if let data = userDefaults.data(forKey: Keys.trainingSamples),
-           let samples = try? decoder.decode([TrainingSample].self, from: data) {
+    private func loadTrainingSamples() throws {
+        guard let data = userDefaults.data(forKey: Keys.trainingSamples) else {
+            return // No data to load
+        }
+        
+        do {
+            let samples = try decoder.decode([TrainingSample].self, from: data)
             trainingSamples = samples
+        } catch {
+            print("Failed to decode training samples: \(error)")
+            // Try to recover by loading an empty array
+            trainingSamples = []
         }
     }
     
     private func saveTrainingSamples() {
-        if let data = try? encoder.encode(trainingSamples) {
+        do {
+            let data = try encoder.encode(trainingSamples)
             userDefaults.set(data, forKey: Keys.trainingSamples)
+            print("Training samples saved successfully")
+        } catch {
+            lastSaveError = "Failed to save training samples: \(error.localizedDescription)"
+            print("Save error: \(error)")
         }
     }
     
-    private func loadModels() {
-        if let data = userDefaults.data(forKey: Keys.models),
-           let models = try? decoder.decode([ModelInfo].self, from: data) {
+    private func loadModels() throws {
+        guard let data = userDefaults.data(forKey: Keys.models) else {
+            return // No data to load
+        }
+        
+        do {
+            let models = try decoder.decode([ModelInfo].self, from: data)
             self.models = models
+        } catch {
+            print("Failed to decode models: \(error)")
+            // Try to recover by loading an empty array
+            self.models = []
         }
     }
     
     private func saveModels() {
-        if let data = try? encoder.encode(models) {
+        do {
+            let data = try encoder.encode(models)
             userDefaults.set(data, forKey: Keys.models)
+            print("Models saved successfully")
+        } catch {
+            lastSaveError = "Failed to save models: \(error.localizedDescription)"
+            print("Save error: \(error)")
         }
     }
     
-    private func loadLabels() {
-        if let data = userDefaults.data(forKey: Keys.labels),
-           let labels = try? decoder.decode([LabelInfo].self, from: data) {
+    private func loadLabels() throws {
+        guard let data = userDefaults.data(forKey: Keys.labels) else {
+            return // No data to load
+        }
+        
+        do {
+            let labels = try decoder.decode([LabelInfo].self, from: data)
             self.labels = labels
+        } catch {
+            print("Failed to decode labels: \(error)")
+            // Try to recover by loading an empty array
+            self.labels = []
         }
     }
     
     private func saveLabels() {
-        if let data = try? encoder.encode(labels) {
+        do {
+            let data = try encoder.encode(labels)
             userDefaults.set(data, forKey: Keys.labels)
+            print("Labels saved successfully")
+        } catch {
+            lastSaveError = "Failed to save labels: \(error.localizedDescription)"
+            print("Save error: \(error)")
         }
     }
     
-    private func loadAppSettings() {
-        if let data = userDefaults.data(forKey: Keys.appSettings),
-           let settings = try? decoder.decode(AppSettings.self, from: data) {
+    private func loadAppSettings() throws {
+        guard let data = userDefaults.data(forKey: Keys.appSettings) else {
+            return // No data to load, use defaults
+        }
+        
+        do {
+            let settings = try decoder.decode(AppSettings.self, from: data)
             appSettings = settings
+        } catch {
+            print("Failed to decode app settings: \(error)")
+            // Use default settings
+            appSettings = AppSettings()
         }
     }
     
     private func saveAppSettings() {
-        if let data = try? encoder.encode(appSettings) {
+        do {
+            let data = try encoder.encode(appSettings)
             userDefaults.set(data, forKey: Keys.appSettings)
+            print("App settings saved successfully")
+        } catch {
+            lastSaveError = "Failed to save app settings: \(error.localizedDescription)"
+            print("Save error: \(error)")
         }
     }
     
-    private func loadClassificationHistory() {
-        if let data = userDefaults.data(forKey: Keys.classificationHistory),
-           let history = try? decoder.decode([ClassificationResult].self, from: data) {
+    private func loadClassificationHistory() throws {
+        guard let data = userDefaults.data(forKey: Keys.classificationHistory) else {
+            return // No data to load
+        }
+        
+        do {
+            let history = try decoder.decode([ClassificationResult].self, from: data)
             classificationHistory = history
+        } catch {
+            print("Failed to decode classification history: \(error)")
+            // Try to recover by loading an empty array
+            classificationHistory = []
         }
     }
     
     private func saveClassificationHistory() {
-        if let data = try? encoder.encode(classificationHistory) {
+        do {
+            let data = try encoder.encode(classificationHistory)
             userDefaults.set(data, forKey: Keys.classificationHistory)
+            print("Classification history saved successfully")
+        } catch {
+            lastSaveError = "Failed to save classification history: \(error.localizedDescription)"
+            print("Save error: \(error)")
         }
     }
     
-    private func loadPlaygroundItems() {
-        if let data = userDefaults.data(forKey: Keys.playgroundItems),
-           let items = try? decoder.decode([PlaygroundItem].self, from: data) {
+    private func loadPlaygroundItems() throws {
+        guard let data = userDefaults.data(forKey: Keys.playgroundItems) else {
+            return // No data to load
+        }
+        
+        do {
+            let items = try decoder.decode([PlaygroundItem].self, from: data)
             playgroundItems = items
+        } catch {
+            print("Failed to decode playground items: \(error)")
+            // Try to recover by loading an empty array
+            playgroundItems = []
         }
     }
     
     private func savePlaygroundItems() {
-        if let data = try? encoder.encode(playgroundItems) {
+        do {
+            let data = try encoder.encode(playgroundItems)
             userDefaults.set(data, forKey: Keys.playgroundItems)
+            print("Playground items saved successfully")
+        } catch {
+            lastSaveError = "Failed to save playground items: \(error.localizedDescription)"
+            print("Save error: \(error)")
         }
     }
     
@@ -390,17 +513,142 @@ class DataManager: ObservableObject {
     }
     
     private func saveData() {
+        isSaving = true
+        lastSaveError = nil
+        
         saveTrainingSamples()
         saveModels()
         saveLabels()
         saveAppSettings()
         saveClassificationHistory()
         savePlaygroundItems()
+        
+        isSaving = false
+    }
+    
+    // MARK: - Data Backup and Restore
+    
+    func createBackup() -> Data? {
+        let backupData = BackupData(
+            version: currentDataVersion,
+            timestamp: Date(),
+            trainingSamples: trainingSamples,
+            models: models,
+            labels: labels,
+            appSettings: appSettings,
+            classificationHistory: classificationHistory,
+            playgroundItems: playgroundItems
+        )
+        
+        do {
+            let data = try encoder.encode(backupData)
+            print("Backup created successfully")
+            return data
+        } catch {
+            lastSaveError = "Failed to create backup: \(error.localizedDescription)"
+            print("Backup creation error: \(error)")
+            return nil
+        }
+    }
+    
+    func restoreFromBackup(_ data: Data) -> Bool {
+        do {
+            let backupData = try decoder.decode(BackupData.self, from: data)
+            
+            // Validate backup version
+            guard backupData.version <= currentDataVersion else {
+                lastLoadError = "Backup is from a newer version and cannot be restored"
+                return false
+            }
+            
+            // Restore data
+            trainingSamples = backupData.trainingSamples
+            models = backupData.models
+            labels = backupData.labels
+            appSettings = backupData.appSettings
+            classificationHistory = backupData.classificationHistory
+            playgroundItems = backupData.playgroundItems
+            
+            // Save restored data
+            saveData()
+            
+            print("Data restored from backup successfully")
+            return true
+            
+        } catch {
+            lastLoadError = "Failed to restore from backup: \(error.localizedDescription)"
+            print("Backup restoration error: \(error)")
+            return false
+        }
+    }
+    
+    func clearAllData() {
+        trainingSamples.removeAll()
+        models.removeAll()
+        labels.removeAll()
+        appSettings = AppSettings()
+        classificationHistory.removeAll()
+        playgroundItems.removeAll()
+        
+        // Clear UserDefaults
+        userDefaults.removeObject(forKey: Keys.trainingSamples)
+        userDefaults.removeObject(forKey: Keys.models)
+        userDefaults.removeObject(forKey: Keys.labels)
+        userDefaults.removeObject(forKey: Keys.appSettings)
+        userDefaults.removeObject(forKey: Keys.classificationHistory)
+        userDefaults.removeObject(forKey: Keys.playgroundItems)
+        
+        // Create default model
+        createDefaultModelIfNeeded()
+        
+        print("All data cleared")
+    }
+    
+    func getDataSize() -> String {
+        var totalSize: Int64 = 0
+        
+        // Calculate UserDefaults data size
+        let keys = [Keys.trainingSamples, Keys.models, Keys.labels, Keys.appSettings, Keys.classificationHistory, Keys.playgroundItems]
+        for key in keys {
+            if let data = userDefaults.data(forKey: key) {
+                totalSize += Int64(data.count)
+            }
+        }
+        
+        // Calculate model files size
+        let documentsPath = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        for model in models {
+            let modelURL = documentsPath.appendingPathComponent("model_\(model.id.uuidString).mlmodelc")
+            if fileManager.fileExists(atPath: modelURL.path) {
+                do {
+                    let attributes = try fileManager.attributesOfItem(atPath: modelURL.path)
+                    if let size = attributes[.size] as? Int64 {
+                        totalSize += size
+                    }
+                } catch {
+                    print("Error calculating model file size: \(error)")
+                }
+            }
+        }
+        
+        return ByteCountFormatter.string(fromByteCount: totalSize, countStyle: .file)
     }
 }
 
 // MARK: - Export Data Structure
 struct ExportData: Codable {
+    let trainingSamples: [TrainingSample]
+    let models: [ModelInfo]
+    let labels: [LabelInfo]
+    let appSettings: AppSettings
+    let classificationHistory: [ClassificationResult]
+    let playgroundItems: [PlaygroundItem]
+}
+
+// MARK: - Backup Data Structure
+struct BackupData: Codable {
+    let version: Int
+    let timestamp: Date
     let trainingSamples: [TrainingSample]
     let models: [ModelInfo]
     let labels: [LabelInfo]

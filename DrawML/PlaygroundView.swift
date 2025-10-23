@@ -24,6 +24,8 @@ struct PlaygroundView: View {
     @State private var shakeOffset: CGFloat = 0
     @State private var recognitionTimer: Timer?
     @State private var isIdle = false
+    @State private var showingRecognitionBounds = false
+    @State private var recognitionBounds: CGRect = .zero
     
     // Computed properties
     private var activeModel: ModelInfo? {
@@ -65,6 +67,11 @@ struct PlaygroundView: View {
                             // Emoji Overlays
                             ForEach(playgroundItems) { item in
                                 EmojiOverlayView(item: item)
+                            }
+                            
+                            // Recognition Bounds Overlay
+                            if showingRecognitionBounds {
+                                RecognitionBoundsOverlay(bounds: recognitionBounds)
                             }
                             
                             // Shake Animation Overlay
@@ -176,6 +183,18 @@ struct PlaygroundView: View {
     private func performRecognition(for model: ModelInfo) {
         isRecognizing = true
         
+        // Show recognition bounds briefly
+        let drawingBounds = canvasView.drawing.bounds
+        if !drawingBounds.isEmpty {
+            recognitionBounds = drawingBounds
+            showingRecognitionBounds = true
+            
+            // Hide bounds after a short delay
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                showingRecognitionBounds = false
+            }
+        }
+        
         Task {
             let result = await trainingManager.predictDrawing(canvasView.drawing, modelId: model.id)
             
@@ -218,19 +237,32 @@ struct PlaygroundView: View {
     // MARK: - Emoji Replacement
     
     private func replaceDrawingWithEmoji(emoji: String, confidence: Double) {
-        // Calculate drawing bounds
+        // Calculate drawing bounds with padding for better visual alignment
         let drawingBounds = canvasView.drawing.bounds
         guard !drawingBounds.isEmpty else { return }
         
-        // Create playground item
-        let item = PlaygroundItem(
-            emoji: emoji,
-            position: drawingBounds.origin,
-            size: drawingBounds.size
+        // Add small padding to make emoji slightly larger than drawing
+        let padding: CGFloat = 10
+        let paddedBounds = CGRect(
+            x: max(0, drawingBounds.origin.x - padding/2),
+            y: max(0, drawingBounds.origin.y - padding/2),
+            width: drawingBounds.width + padding,
+            height: drawingBounds.height + padding
         )
         
-        // Add to playground items
-        playgroundItems.append(item)
+        // Create playground item with enhanced positioning
+        let item = PlaygroundItem(
+            emoji: emoji,
+            position: paddedBounds.origin,
+            size: paddedBounds.size
+        )
+        
+        // Add to playground items with animation
+        withAnimation(.spring(response: 0.6, dampingFraction: 0.7)) {
+            playgroundItems.append(item)
+        }
+        
+        // Save to data manager
         dataManager.addPlaygroundItem(item)
         
         // Add to classification history
@@ -243,8 +275,10 @@ struct PlaygroundView: View {
             dataManager.addClassificationResult(result)
         }
         
-        // Clear the drawing
-        canvasView.drawing = PKDrawing()
+        // Clear the drawing with a brief delay to show the replacement
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            self.canvasView.drawing = PKDrawing()
+        }
     }
     
     // MARK: - Shake Animation
@@ -382,15 +416,67 @@ struct PlaygroundCanvasView: UIViewRepresentable {
 struct EmojiOverlayView: View {
     let item: PlaygroundItem
     @State private var isVisible = false
+    @State private var isAnimating = false
+    
+    // Calculate optimal emoji size based on drawing bounds
+    private var emojiSize: CGFloat {
+        let minDimension = min(item.size.width, item.size.height)
+        _ = max(item.size.width, item.size.height)
+        
+        // Scale emoji to fit nicely within the drawing bounds
+        // Use 80% of the smaller dimension, but ensure it's not too small or too large
+        let baseSize = minDimension * 0.8
+        return max(20, min(120, baseSize))
+    }
     
     var body: some View {
         Text(item.emoji)
-            .font(.system(size: min(item.size.width, item.size.height) * 0.8))
-            .position(x: item.position.x + item.size.width / 2, 
-                     y: item.position.y + item.size.height / 2)
+            .font(.system(size: emojiSize))
+            .frame(width: item.size.width, height: item.size.height)
+            .position(
+                x: item.position.x + item.size.width / 2,
+                y: item.position.y + item.size.height / 2
+            )
             .opacity(isVisible ? 1 : 0)
-            .scaleEffect(isVisible ? 1 : 0.5)
-            .animation(.spring(response: 0.5, dampingFraction: 0.6), value: isVisible)
+            .scaleEffect(isVisible ? 1 : 0.3)
+            .rotationEffect(.degrees(isAnimating ? 5 : 0))
+            .animation(
+                .spring(response: 0.6, dampingFraction: 0.7)
+                .delay(isVisible ? 0 : 0.1),
+                value: isVisible
+            )
+            .animation(
+                .easeInOut(duration: 0.1).repeatCount(3, autoreverses: true),
+                value: isAnimating
+            )
+            .onAppear {
+                isVisible = true
+                // Add a subtle bounce animation
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    isAnimating = true
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        isAnimating = false
+                    }
+                }
+            }
+    }
+}
+
+// MARK: - Recognition Bounds Overlay
+
+struct RecognitionBoundsOverlay: View {
+    let bounds: CGRect
+    @State private var isVisible = false
+    
+    var body: some View {
+        Rectangle()
+            .stroke(Color.blue, lineWidth: 2)
+            .background(Color.blue.opacity(0.1))
+            .frame(width: bounds.width, height: bounds.height)
+            .position(x: bounds.midX, y: bounds.midY)
+            .opacity(isVisible ? 1 : 0)
+            .scaleEffect(isVisible ? 1 : 0.8)
+            .animation(.easeInOut(duration: 0.2), value: isVisible)
             .onAppear {
                 isVisible = true
             }

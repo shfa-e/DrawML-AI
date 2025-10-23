@@ -65,7 +65,7 @@ class ModelTrainingManager: ObservableObject {
             await MainActor.run { trainingProgress = 0.1 }
             
             // Load the base model
-            guard let baseModel = loadBaseModel() else {
+            guard loadBaseModel() != nil else {
                 await MainActor.run {
                     lastTrainingError = "Could not load base model"
                     isTraining = false
@@ -315,7 +315,7 @@ class ModelTrainingManager: ObservableObject {
             let input = try MLDictionaryFeatureProvider(dictionary: features)
 
             // Make prediction
-            let prediction = try await model.prediction(from: input)
+            _ = try await model.prediction(from: input)
             
             // Extract results (this would need to be adapted based on the actual model output)
             // For now, return a placeholder

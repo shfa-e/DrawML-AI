@@ -233,12 +233,12 @@ struct DrawingUtils {
         
         let scaleX = targetSize.width / bounds.size.width
         let scaleY = targetSize.height / bounds.size.height
-        let scale = min(scaleX, scaleY)
+        _ = min(scaleX, scaleY)
         
         var scaledDrawing = PKDrawing()
         
         for stroke in drawing.strokes {
-            var scaledStroke = stroke
+            let scaledStroke = stroke
             // Apply scaling transformation to stroke
             // This is a simplified version - in practice, you'd need to transform each point
             scaledDrawing.strokes.append(scaledStroke)

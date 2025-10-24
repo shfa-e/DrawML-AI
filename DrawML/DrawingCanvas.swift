@@ -81,7 +81,15 @@ struct DrawingCanvas: View {
     
     // Public methods for parent views
     func clearCanvas() {
-        canvasView.drawing = PKDrawing()
+        // Add haptic feedback
+        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+        impactFeedback.impactOccurred()
+        
+        // Clear with animation
+        withAnimation(.easeInOut(duration: 0.2)) {
+            canvasView.drawing = PKDrawing()
+        }
+        
         onDrawingChanged?()
     }
     

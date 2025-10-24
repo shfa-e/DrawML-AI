@@ -30,6 +30,7 @@ struct PlaygroundView: View {
     @State private var showingRecognitionBounds = false
     @State private var recognitionBounds: CGRect = .zero
     @State private var lastRecognizedStrokeCount = 0
+    @State private var showingClearConfirmation = false
     
     // Computed properties
     private var activeModel: ModelInfo? {
@@ -497,9 +498,31 @@ struct PlaygroundView: View {
     // MARK: - Controls
     
     private func clearCanvas() {
-        canvasView.drawing = PKDrawing()
-        playgroundItems.removeAll()
+        // Check if there's anything to clear
+        let hasDrawing = !canvasView.drawing.strokes.isEmpty
+        let hasEmojis = !playgroundItems.isEmpty
+        
+        if !hasDrawing && !hasEmojis {
+            // Show "Nothing to undo" message
+            showShakeMessage(message: "Nothing to undo", type: .noResult)
+            return
+        }
+        
+        // Add haptic feedback
+        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+        impactFeedback.impactOccurred()
+        
+        // Clear everything with animation
+        withAnimation(.easeInOut(duration: 0.3)) {
+            canvasView.drawing = PKDrawing()
+            playgroundItems.removeAll()
+        }
+        
+        // Clear from data manager
         dataManager.clearPlaygroundItems()
+        
+        // Reset stroke count
+        lastRecognizedStrokeCount = 0
     }
     
     private func clearCurrentDrawing() {
@@ -797,20 +820,41 @@ struct PlaygroundControls: View {
     let isRecognizing: Bool
     let onClearCanvas: () -> Void
     let onToggleRecognition: () -> Void
+    @State private var isPressed = false
     
     var body: some View {
         HStack(spacing: 16) {
-            Button(action: onClearCanvas) {
+            Button(action: {
+                // Add press animation
+                withAnimation(.easeInOut(duration: 0.1)) {
+                    isPressed = true
+                }
+                
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    withAnimation(.easeInOut(duration: 0.1)) {
+                        isPressed = false
+                    }
+                }
+                
+                onClearCanvas()
+            }) {
                 HStack(spacing: 8) {
                     Image(systemName: "trash")
-                    Text("Clear")
+                        .font(.system(size: 14, weight: .medium))
+                    Text("Clear All")
+                        .font(.system(size: 14, weight: .medium))
                 }
                 .foregroundColor(.white)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
-                .background(Color.red)
-                .cornerRadius(8)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.red)
+                        .shadow(color: .red.opacity(0.3), radius: isPressed ? 2 : 4, x: 0, y: isPressed ? 1 : 2)
+                )
+                .scaleEffect(isPressed ? 0.95 : 1.0)
             }
+            .buttonStyle(PlainButtonStyle())
             
             Spacer()
             

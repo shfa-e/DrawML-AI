@@ -19,6 +19,7 @@ struct TrainView: View {
     @State private var successMessage = ""
     @State private var canvasRef: DrawingCanvas?
     @State private var showingTrainingProgress = false
+    @State private var showingClearConfirmation = false
     
     // Computed properties
     private var activeModel: ModelInfo? {
@@ -177,21 +178,28 @@ struct TrainView: View {
                     }
                     
                     // Clear Canvas Button
-                    Button(action: clearCanvas) {
+                    Button(action: {
+                        if canvasRef?.hasDrawing() == true {
+                            showingClearConfirmation = true
+                        } else {
+                            showError("Nothing to undo")
+                        }
+                    }) {
                         HStack {
                             Image(systemName: "trash.circle.fill")
                             Text("Clear Canvas")
                         }
                         .font(.subheadline)
-                        .foregroundColor(.red)
+                        .foregroundColor(canvasRef?.hasDrawing() == true ? .red : .gray)
                         .padding(.vertical, 8)
                         .padding(.horizontal, 16)
                         .background(
                             RoundedRectangle(cornerRadius: 8)
-                                .fill(Color.red.opacity(0.1))
+                                .fill((canvasRef?.hasDrawing() == true ? Color.red : Color.gray).opacity(0.1))
                         )
                     }
                     .buttonStyle(PlainButtonStyle())
+                    .disabled(canvasRef?.hasDrawing() != true)
                 }
                 .padding()
                 .background(Color(.systemBackground))
@@ -280,6 +288,14 @@ struct TrainView: View {
             Button("OK") { }
         } message: {
             Text(successMessage)
+        }
+        .confirmationDialog("Clear Canvas", isPresented: $showingClearConfirmation) {
+            Button("Clear", role: .destructive) {
+                clearCanvas()
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("This will clear your current drawing. This action cannot be undone.")
         }
         .overlay(
             // Training Progress Overlay
@@ -412,7 +428,15 @@ struct TrainView: View {
     }
     
     private func clearCanvas() {
+        // Add haptic feedback
+        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+        impactFeedback.impactOccurred()
+        
+        // Clear the canvas
         canvasRef?.clearCanvas()
+        
+        // Show success message
+        showSuccess("Canvas cleared")
     }
     
     private func showError(_ message: String) {

@@ -29,6 +29,7 @@ struct PlaygroundView: View {
     @State private var isIdle = false
     @State private var showingRecognitionBounds = false
     @State private var recognitionBounds: CGRect = .zero
+    @State private var lastRecognizedStrokeCount = 0
     
     // Computed properties
     private var activeModel: ModelInfo? {
@@ -183,7 +184,15 @@ struct PlaygroundView: View {
             return
         }
         
+        // Check if there are new strokes that haven't been recognized yet
+        guard hasNewStrokes() else { return }
+        
         performRecognition(for: model)
+    }
+    
+    private func hasNewStrokes() -> Bool {
+        let currentStrokeCount = canvasView.drawing.strokes.count
+        return currentStrokeCount > lastRecognizedStrokeCount
     }
     
     private func performRecognition(for model: ModelInfo) {
@@ -208,8 +217,11 @@ struct PlaygroundView: View {
             }
         }
         
+        // Try to isolate recent strokes for better recognition
+        let drawingToRecognize = isolateRecentStrokes()
+        
         Task {
-            let result = await trainingManager.predictDrawing(canvasView.drawing, modelId: model.id)
+            let result = await trainingManager.predictDrawing(drawingToRecognize, modelId: model.id)
             
             await MainActor.run {
                 isRecognizing = false
@@ -218,6 +230,8 @@ struct PlaygroundView: View {
                 if let (emoji, confidence) = result {
                     if confidence > 0.7 { // High confidence threshold
                         replaceDrawingWithEmoji(emoji: emoji, confidence: confidence)
+                        // Update stroke count after successful recognition
+                        lastRecognizedStrokeCount = canvasView.drawing.strokes.count
                     } else {
                         showShakeMessage(message: "Couldn't classify that drawing.", type: .lowConfidence)
                     }
@@ -240,6 +254,67 @@ struct PlaygroundView: View {
         if showingShakeMessage {
             showingShakeMessage = false
         }
+        
+        // Check if drawing over existing emojis
+        checkForDrawingOverEmojis()
+    }
+    
+    private func checkForDrawingOverEmojis() {
+        let currentDrawing = canvasView.drawing
+        guard !currentDrawing.strokes.isEmpty else { return }
+        
+        let drawingBounds = currentDrawing.bounds
+        
+        // Check if any playground items intersect with the current drawing
+        for item in playgroundItems {
+            let itemBounds = CGRect(
+                x: item.position.x,
+                y: item.position.y,
+                width: item.size.width,
+                height: item.size.height
+            )
+            
+            if drawingBounds.intersects(itemBounds) {
+                // Provide visual feedback that user is drawing over an emoji
+                showDrawingOverEmojiFeedback()
+                break
+            }
+        }
+    }
+    
+    private func showDrawingOverEmojiFeedback() {
+        // Provide haptic feedback
+        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+        impactFeedback.impactOccurred()
+        
+        // Show a brief message
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            // This could be enhanced with a toast message
+            print("Drawing over emoji - new shape will be recognized")
+        }
+    }
+    
+    private func isolateRecentStrokes() -> PKDrawing {
+        let currentDrawing = canvasView.drawing
+        let allStrokes = currentDrawing.strokes
+        
+        // If we have no previous recognition, use all strokes
+        guard lastRecognizedStrokeCount > 0 else {
+            return currentDrawing
+        }
+        
+        // Create a new drawing with only the recent strokes
+        var recentDrawing = PKDrawing()
+        
+        // Get strokes that were added since last recognition
+        let recentStrokes = Array(allStrokes.suffix(allStrokes.count - lastRecognizedStrokeCount))
+        
+        for stroke in recentStrokes {
+            recentDrawing.strokes.append(stroke)
+        }
+        
+        // If no recent strokes, fall back to full drawing
+        return recentStrokes.isEmpty ? currentDrawing : recentDrawing
     }
     
     private func handleError(_ message: String) {
@@ -288,9 +363,10 @@ struct PlaygroundView: View {
             dataManager.addClassificationResult(result)
         }
         
-        // Clear the drawing with a brief delay to show the replacement
+        // Clear only the current drawing strokes, not the entire canvas
+        // This allows multiple shapes to coexist on the canvas
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            self.canvasView.drawing = PKDrawing()
+            self.clearCurrentDrawing()
         }
     }
     
@@ -387,6 +463,11 @@ struct PlaygroundView: View {
         dataManager.clearPlaygroundItems()
     }
     
+    private func clearCurrentDrawing() {
+        // Clear only the current drawing, keeping existing emoji overlays
+        canvasView.drawing = PKDrawing()
+    }
+    
     private func toggleRecognition() {
         if recognitionTimer != nil {
             recognitionTimer?.invalidate()
@@ -443,6 +524,18 @@ struct PlaygroundHeader: View {
                 .padding(.vertical, 6)
                 .background(Color.orange.opacity(0.1))
                 .cornerRadius(8)
+            } else {
+                HStack {
+                    Image(systemName: "info.circle.fill")
+                        .foregroundColor(.blue)
+                    Text("Draw multiple shapes - they'll stay on screen as emojis")
+                        .font(.caption)
+                        .foregroundColor(.blue)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(Color.blue.opacity(0.1))
+                .cornerRadius(8)
             }
         }
         .padding(.horizontal)
@@ -498,6 +591,7 @@ struct EmojiOverlayView: View {
     let item: PlaygroundItem
     @State private var isVisible = false
     @State private var isAnimating = false
+    @State private var isHighlighted = false
     
     // Calculate optimal emoji size based on drawing bounds
     private var emojiSize: CGFloat {
@@ -511,35 +605,55 @@ struct EmojiOverlayView: View {
     }
     
     var body: some View {
-        Text(item.emoji)
-            .font(.system(size: emojiSize))
-            .frame(width: item.size.width, height: item.size.height)
-            .position(
-                x: item.position.x + item.size.width / 2,
-                y: item.position.y + item.size.height / 2
-            )
-            .opacity(isVisible ? 1 : 0)
-            .scaleEffect(isVisible ? 1 : 0.3)
-            .rotationEffect(.degrees(isAnimating ? 5 : 0))
-            .animation(
-                .spring(response: 0.6, dampingFraction: 0.7)
-                .delay(isVisible ? 0 : 0.1),
-                value: isVisible
-            )
-            .animation(
-                .easeInOut(duration: 0.1).repeatCount(3, autoreverses: true),
-                value: isAnimating
-            )
-            .onAppear {
-                isVisible = true
-                // Add a subtle bounce animation
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                    isAnimating = true
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        isAnimating = false
-                    }
+        ZStack {
+            // Background highlight when drawing over
+            if isHighlighted {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.blue.opacity(0.2))
+                    .frame(width: item.size.width + 10, height: item.size.height + 10)
+                    .position(
+                        x: item.position.x + item.size.width / 2,
+                        y: item.position.y + item.size.height / 2
+                    )
+                    .animation(.easeInOut(duration: 0.3), value: isHighlighted)
+            }
+            
+            // Emoji text
+            Text(item.emoji)
+                .font(.system(size: emojiSize))
+                .frame(width: item.size.width, height: item.size.height)
+                .position(
+                    x: item.position.x + item.size.width / 2,
+                    y: item.position.y + item.size.height / 2
+                )
+                .opacity(isVisible ? 1 : 0)
+                .scaleEffect(isVisible ? 1 : 0.3)
+                .rotationEffect(.degrees(isAnimating ? 5 : 0))
+                .animation(
+                    .spring(response: 0.6, dampingFraction: 0.7)
+                    .delay(isVisible ? 0 : 0.1),
+                    value: isVisible
+                )
+                .animation(
+                    .easeInOut(duration: 0.1).repeatCount(3, autoreverses: true),
+                    value: isAnimating
+                )
+        }
+        .onAppear {
+            isVisible = true
+            // Add a subtle bounce animation
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                isAnimating = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    isAnimating = false
                 }
             }
+        }
+        .onTapGesture {
+            // Provide haptic feedback when tapping on emoji
+            let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+            impactFeedback.impactOccurred()
+        }
     }
 }
 

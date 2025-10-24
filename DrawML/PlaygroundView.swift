@@ -317,6 +317,33 @@ struct PlaygroundView: View {
         return recentStrokes.isEmpty ? currentDrawing : recentDrawing
     }
     
+    // MARK: - Drawing Analysis Utilities
+    
+    private func calculateStrokeComplexity(_ drawing: PKDrawing) -> Double {
+        guard !drawing.strokes.isEmpty else { return 0 }
+        
+        let totalPoints = drawing.strokes.reduce(0) { count, stroke in
+            return count + stroke.path.count
+        }
+        
+        let bounds = drawing.bounds
+        let area = bounds.width * bounds.height
+        
+        // Return points per unit area as complexity measure
+        return area > 0 ? Double(totalPoints) / Double(area) : 0
+    }
+    
+    private func calculateStrokeDensity(_ drawing: PKDrawing) -> Double {
+        guard !drawing.strokes.isEmpty else { return 0 }
+        
+        let strokeCount = drawing.strokes.count
+        let bounds = drawing.bounds
+        let area = bounds.width * bounds.height
+        
+        // Return strokes per unit area as density measure
+        return area > 0 ? Double(strokeCount) / Double(area) : 0
+    }
+    
     private func handleError(_ message: String) {
         errorMessage = message
         showingError = true
@@ -325,20 +352,32 @@ struct PlaygroundView: View {
     // MARK: - Emoji Replacement
     
     private func replaceDrawingWithEmoji(emoji: String, confidence: Double) {
-        // Calculate drawing bounds with padding for better visual alignment
+        // Calculate drawing bounds with intelligent padding based on drawing analysis
         let drawingBounds = canvasView.drawing.bounds
         guard !drawingBounds.isEmpty else { return }
         
-        // Add small padding to make emoji slightly larger than drawing
-        let padding: CGFloat = 10
+        // Analyze drawing complexity and density for better scaling
+        let complexity = calculateStrokeComplexity(canvasView.drawing)
+        let density = calculateStrokeDensity(canvasView.drawing)
+        let drawingSize = max(drawingBounds.width, drawingBounds.height)
+        
+        // Calculate intelligent padding based on drawing characteristics
+        let basePadding = max(8, min(20, drawingSize * 0.1))
+        
+        // Adjust padding based on complexity and density
+        let complexityFactor = min(1.5, max(0.7, 1.0 + (complexity * 0.1)))
+        let densityFactor = min(1.3, max(0.8, 1.0 + (density * 0.05)))
+        
+        let adjustedPadding = basePadding * complexityFactor * densityFactor
+        
         let paddedBounds = CGRect(
-            x: max(0, drawingBounds.origin.x - padding/2),
-            y: max(0, drawingBounds.origin.y - padding/2),
-            width: drawingBounds.width + padding,
-            height: drawingBounds.height + padding
+            x: max(0, drawingBounds.origin.x - adjustedPadding/2),
+            y: max(0, drawingBounds.origin.y - adjustedPadding/2),
+            width: drawingBounds.width + adjustedPadding,
+            height: drawingBounds.height + adjustedPadding
         )
         
-        // Create playground item with enhanced positioning
+        // Create playground item with enhanced positioning and scaling info
         let item = PlaygroundItem(
             emoji: emoji,
             position: paddedBounds.origin,
@@ -593,15 +632,40 @@ struct EmojiOverlayView: View {
     @State private var isAnimating = false
     @State private var isHighlighted = false
     
-    // Calculate optimal emoji size based on drawing bounds
+    // Calculate optimal emoji size based on drawing bounds with intelligent scaling
     private var emojiSize: CGFloat {
-        let minDimension = min(item.size.width, item.size.height)
-        _ = max(item.size.width, item.size.height)
+        let containerWidth = item.size.width
+        let containerHeight = item.size.height
+        let minDimension = min(containerWidth, containerHeight)
+        let maxDimension = max(containerWidth, containerHeight)
         
-        // Scale emoji to fit nicely within the drawing bounds
-        // Use 80% of the smaller dimension, but ensure it's not too small or too large
-        let baseSize = minDimension * 0.8
-        return max(20, min(120, baseSize))
+        // Calculate aspect ratio to determine scaling strategy
+        let aspectRatio = maxDimension / minDimension
+        
+        // Base scaling factor based on aspect ratio
+        let baseScaleFactor: CGFloat
+        if aspectRatio <= 1.2 {
+            // Square or near-square - use generous scaling
+            baseScaleFactor = 0.8
+        } else if aspectRatio <= 2.0 {
+            // Moderately rectangular - use balanced scaling
+            baseScaleFactor = 0.7
+        } else {
+            // Very rectangular - use conservative scaling
+            baseScaleFactor = 0.6
+        }
+        
+        // Calculate base size using the smaller dimension
+        let baseSize = minDimension * baseScaleFactor
+        
+        // Apply size constraints with better min/max bounds
+        let minSize: CGFloat = 16
+        let maxSize: CGFloat = 150
+        
+        // Additional constraint: don't let emoji be larger than 80% of the larger dimension
+        let maxAllowedSize = maxDimension * 0.8
+        
+        return max(minSize, min(maxSize, min(baseSize, maxAllowedSize)))
     }
     
     var body: some View {
@@ -618,9 +682,9 @@ struct EmojiOverlayView: View {
                     .animation(.easeInOut(duration: 0.3), value: isHighlighted)
             }
             
-            // Emoji text
+            // Emoji text with enhanced scaling
             Text(item.emoji)
-                .font(.system(size: emojiSize))
+                .font(.system(size: emojiSize, weight: .medium))
                 .frame(width: item.size.width, height: item.size.height)
                 .position(
                     x: item.position.x + item.size.width / 2,
@@ -638,6 +702,7 @@ struct EmojiOverlayView: View {
                     .easeInOut(duration: 0.1).repeatCount(3, autoreverses: true),
                     value: isAnimating
                 )
+                .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
         }
         .onAppear {
             isVisible = true

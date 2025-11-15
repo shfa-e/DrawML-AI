@@ -9,6 +9,7 @@ import SwiftUI
 
 struct HomeView: View {
     @StateObject private var dataManager = DataManager.shared
+    @State private var showOnboarding = false
     
     private var activeModelName: String {
         dataManager.getActiveModel()?.name ?? "No Model"
@@ -88,14 +89,17 @@ struct HomeView: View {
                     }
                     .buttonStyle(PlainButtonStyle())
                     
-                    NavigationButton(
-                        title: "Help",
-                        subtitle: "Learn how to use DrawML",
-                        icon: "questionmark.circle.fill",
-                        color: .blue
-                    ) {
-                        // Navigation to Help screen will be implemented later
+                    NavigationLink(destination: HelpView()) {
+                        NavigationButton(
+                            title: "Help",
+                            subtitle: "Learn how to use DrawML",
+                            icon: "questionmark.circle.fill",
+                            color: .blue
+                        ) {
+                            // Navigation handled by NavigationLink
+                        }
                     }
+                    .buttonStyle(PlainButtonStyle())
                 }
                 .padding(.horizontal, 20)
                 
@@ -103,6 +107,29 @@ struct HomeView: View {
             }
             .navigationTitle("")
             .navigationBarHidden(true)
+            .sheet(isPresented: $showOnboarding) {
+                NavigationView {
+                    HelpView()
+                        .navigationBarTitleDisplayMode(.inline)
+                        .toolbar {
+                            ToolbarItem(placement: .navigationBarTrailing) {
+                                Button("Done") {
+                                    // Mark onboarding as seen
+                                    var settings = dataManager.appSettings
+                                    settings.onboardingSeen = true
+                                    dataManager.updateAppSettings(settings)
+                                    showOnboarding = false
+                                }
+                            }
+                        }
+                }
+            }
+            .onAppear {
+                // Show onboarding on first launch
+                if !dataManager.appSettings.onboardingSeen {
+                    showOnboarding = true
+                }
+            }
         }
         .navigationViewStyle(StackNavigationViewStyle()) // Ensures consistent behavior on iPad
     }

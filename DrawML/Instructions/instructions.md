@@ -199,8 +199,8 @@
 | **B-012.** On failed recognition: shake + show message (F-013). |✅
 | **B-013.** Keep multiple shapes on canvas (F-014) and allow drawing over emojis (F-015). |✅
 | **B-014.** Scale emoji to drawing size (based on stroke bounds). |✅
-| **B-015.** Add **Clear Canvas** (F-008) button for resets. |
-| **B-016.** Add **Onboarding Tips** (F-011) under Help (S-006). |
+| **B-015.** Add **Clear Canvas** (F-008) button for resets. |✅
+| **B-016.** Add **Onboarding Tips** (F-011) under Help (S-006). | ✅
 | **B-017.** Make layout adaptive for iPhone/iPad (F-016). |
 | **B-018.** Add local save for Playground emojis (D-007). |
 | **B-019.** Test all **User Stories (US-001 → US-015)** manually. |

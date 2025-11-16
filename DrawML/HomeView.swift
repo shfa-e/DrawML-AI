@@ -52,56 +52,21 @@ struct HomeView: View {
                 Spacer()
                 
                 // Navigation Buttons
-                VStack(spacing: 20) {
-                    NavigationLink(destination: TrainView()) {
-                        NavigationButton(
-                            title: "Train",
-                            subtitle: "Teach your model",
-                            icon: "pencil.circle.fill",
-                            color: .green
-                        ) {
-                            // Navigation handled by NavigationLink
+                Group {
+                    if DeviceUtils.isPad {
+                        // iPad: Grid layout
+                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 20) {
+                            navigationButtonGrid
                         }
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                    
-                    NavigationLink(destination: PlaygroundView()) {
-                        NavigationButton(
-                            title: "Playground",
-                            subtitle: "Test your model",
-                            icon: "gamecontroller.fill",
-                            color: .orange
-                        ) {
-                            // Navigation handled by NavigationLink
+                        .padding(.horizontal, DeviceUtils.optimalPadding)
+                    } else {
+                        // iPhone: Vertical layout
+                        VStack(spacing: 20) {
+                            navigationButtonGrid
                         }
+                        .padding(.horizontal, DeviceUtils.optimalPadding)
                     }
-                    .buttonStyle(PlainButtonStyle())
-                    
-                    NavigationLink(destination: ModelsView()) {
-                        NavigationButton(
-                            title: "Models",
-                            subtitle: "Manage your models",
-                            icon: "folder.fill",
-                            color: .purple
-                        ) {
-                            // Navigation handled by NavigationLink
-                        }
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                    
-                    NavigationLink(destination: HelpView()) {
-                        NavigationButton(
-                            title: "Help",
-                            subtitle: "Learn how to use DrawML",
-                            icon: "questionmark.circle.fill",
-                            color: .blue
-                        ) {
-                            // Navigation handled by NavigationLink
-                        }
-                    }
-                    .buttonStyle(PlainButtonStyle())
                 }
-                .padding(.horizontal, 20)
                 
                 Spacer()
             }
@@ -132,6 +97,59 @@ struct HomeView: View {
             }
         }
         .navigationViewStyle(StackNavigationViewStyle()) // Ensures consistent behavior on iPad
+    }
+    
+    // MARK: - Navigation Buttons Grid
+    private var navigationButtonGrid: some View {
+        Group {
+            NavigationLink(destination: TrainView()) {
+                NavigationButton(
+                    title: "Train",
+                    subtitle: "Teach your model",
+                    icon: "pencil.circle.fill",
+                    color: .green
+                ) {
+                    // Navigation handled by NavigationLink
+                }
+            }
+            .buttonStyle(PlainButtonStyle())
+            
+            NavigationLink(destination: PlaygroundView()) {
+                NavigationButton(
+                    title: "Playground",
+                    subtitle: "Test your model",
+                    icon: "gamecontroller.fill",
+                    color: .orange
+                ) {
+                    // Navigation handled by NavigationLink
+                }
+            }
+            .buttonStyle(PlainButtonStyle())
+            
+            NavigationLink(destination: ModelsView()) {
+                NavigationButton(
+                    title: "Models",
+                    subtitle: "Manage your models",
+                    icon: "folder.fill",
+                    color: .purple
+                ) {
+                    // Navigation handled by NavigationLink
+                }
+            }
+            .buttonStyle(PlainButtonStyle())
+            
+            NavigationLink(destination: HelpView()) {
+                NavigationButton(
+                    title: "Help",
+                    subtitle: "Learn how to use DrawML",
+                    icon: "questionmark.circle.fill",
+                    color: .blue
+                ) {
+                    // Navigation handled by NavigationLink
+                }
+            }
+            .buttonStyle(PlainButtonStyle())
+        }
     }
 }
 

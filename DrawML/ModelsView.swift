@@ -37,18 +37,37 @@ struct ModelsView: View {
                     EmptyModelsView()
                 } else {
                     ScrollView {
-                        LazyVStack(spacing: 12) {
-                            ForEach(dataManager.models) { model in
-                                ModelRowView(
-                                    model: model,
-                                    onRename: { showingRenameModel = model },
-                                    onDelete: { showingDeleteConfirmation = model },
-                                    onSetActive: { dataManager.setActiveModel(model) }
-                                )
+                        Group {
+                            if DeviceUtils.isPad {
+                                // iPad: Grid layout
+                                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
+                                    ForEach(dataManager.models) { model in
+                                        ModelRowView(
+                                            model: model,
+                                            onRename: { showingRenameModel = model },
+                                            onDelete: { showingDeleteConfirmation = model },
+                                            onSetActive: { dataManager.setActiveModel(model) }
+                                        )
+                                    }
+                                }
+                                .padding(.horizontal, DeviceUtils.optimalPadding)
+                                .padding(.top, 20)
+                            } else {
+                                // iPhone: Vertical list
+                                LazyVStack(spacing: 12) {
+                                    ForEach(dataManager.models) { model in
+                                        ModelRowView(
+                                            model: model,
+                                            onRename: { showingRenameModel = model },
+                                            onDelete: { showingDeleteConfirmation = model },
+                                            onSetActive: { dataManager.setActiveModel(model) }
+                                        )
+                                    }
+                                }
+                                .padding(.horizontal, DeviceUtils.optimalPadding)
+                                .padding(.top, 20)
                             }
                         }
-                        .padding(.horizontal, 20)
-                        .padding(.top, 20)
                     }
                 }
                 

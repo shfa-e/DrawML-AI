@@ -78,23 +78,47 @@ struct LabelsView: View {
                     }
                 } else {
                     ScrollView {
-                        LazyVStack(spacing: 12) {
-                            ForEach(labels) { label in
-                                LabelRowView(
-                                    label: label,
-                                    onDelete: {
-                                        labelToDelete = label
-                                        showingDeleteAlert = true
-                                    },
-                                    onRename: {
-                                        labelToRename = label
-                                        newLabelName = label.name ?? ""
-                                        showingRenameAlert = true
+                        Group {
+                            if DeviceUtils.isPad {
+                                // iPad: Grid layout
+                                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
+                                    ForEach(labels) { label in
+                                        LabelRowView(
+                                            label: label,
+                                            onDelete: {
+                                                labelToDelete = label
+                                                showingDeleteAlert = true
+                                            },
+                                            onRename: {
+                                                labelToRename = label
+                                                newLabelName = label.name ?? ""
+                                                showingRenameAlert = true
+                                            }
+                                        )
                                     }
-                                )
+                                }
+                                .padding(DeviceUtils.optimalPadding)
+                            } else {
+                                // iPhone: Vertical list
+                                LazyVStack(spacing: 12) {
+                                    ForEach(labels) { label in
+                                        LabelRowView(
+                                            label: label,
+                                            onDelete: {
+                                                labelToDelete = label
+                                                showingDeleteAlert = true
+                                            },
+                                            onRename: {
+                                                labelToRename = label
+                                                newLabelName = label.name ?? ""
+                                                showingRenameAlert = true
+                                            }
+                                        )
+                                    }
+                                }
+                                .padding()
                             }
                         }
-                        .padding()
                     }
                 }
                 

@@ -38,223 +38,14 @@ struct TrainView: View {
     
     var body: some View {
         NavigationView {
-            VStack(spacing: 0) {
-                // Header
-                VStack(spacing: 8) {
-                    Text("Train Your Model")
-                        .font(.largeTitle)
-                        .fontWeight(.bold)
-                    
-                    if let model = activeModel {
-                        HStack {
-                            Text("Model: \(model.name)")
-                                .font(.headline)
-                                .foregroundColor(.blue)
-                            
-                            if trainingManager.hasTrainedModel(for: model.id) {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundColor(.green)
-                                    .font(.caption)
-                            }
-                        }
-                        
-                        if let lastTrained = model.lastTrained {
-                            Text("Last trained: \(lastTrained, style: .relative) ago")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                    
-                    Text("Draw something and pick an emoji to teach your model")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
+            Group {
+                if DeviceUtils.isPad {
+                    // iPad: Split-screen layout
+                    iPadLayout
+                } else {
+                    // iPhone: Vertical layout
+                    iPhoneLayout
                 }
-                .padding()
-                .background(Color(.systemBackground))
-                
-                // Drawing Canvas
-                DrawingCanvas(
-                    isEditable: true,
-                    backgroundColor: .white,
-                    onDrawingChanged: {
-                        // Handle drawing changes if needed
-                    },
-                    onError: { error in
-                        showError("Couldn't read drawing. Please try again.")
-                    }
-                )
-                .frame(maxHeight: 400)
-                .border(Color.gray.opacity(0.3), width: 1)
-                .background(
-                    DrawingCanvasWrapper { canvas in
-                        canvasRef = canvas
-                    }
-                )
-                
-                // Controls Section
-                VStack(spacing: 16) {
-                    // Emoji Selection
-                    VStack(spacing: 8) {
-                        Text("Choose Emoji Label")
-                            .font(.headline)
-                            .foregroundColor(.primary)
-                        
-                        Button(action: {
-                            showingEmojiPicker = true
-                        }) {
-                            HStack {
-                                if selectedEmoji.isEmpty {
-                                    Image(systemName: "face.smiling")
-                                        .font(.title2)
-                                    Text("Pick an Emoji")
-                                        .font(.headline)
-                                } else {
-                                    Text(selectedEmoji)
-                                        .font(.title)
-                                    Text("Change Emoji")
-                                        .font(.subheadline)
-                                        .foregroundColor(.secondary)
-                                }
-                            }
-                            .foregroundColor(.primary)
-                            .padding()
-                            .frame(maxWidth: .infinity)
-                            .background(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color(.systemGray6))
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .stroke(selectedEmoji.isEmpty ? Color.orange : Color.blue, lineWidth: 2)
-                                    )
-                            )
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                    }
-                    
-                    // Action Buttons
-                    HStack(spacing: 12) {
-                        // Add Sample Button
-                        Button(action: addSample) {
-                            HStack {
-                                Image(systemName: "plus.circle.fill")
-                                Text("Add Sample")
-                            }
-                            .font(.headline)
-                            .foregroundColor(.white)
-                            .padding()
-                            .frame(maxWidth: .infinity)
-                            .background(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(canAddSample ? Color.green : Color.gray)
-                            )
-                        }
-                        .disabled(!canAddSample)
-                        .buttonStyle(PlainButtonStyle())
-                        
-                        // Train Model Button
-                        Button(action: trainModel) {
-                            HStack {
-                                if trainingManager.isTraining {
-                                    ProgressView()
-                                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                        .scaleEffect(0.8)
-                                } else {
-                                    Image(systemName: "brain.head.profile")
-                                }
-                                Text(trainingManager.isTraining ? "Training..." : "Train Model")
-                            }
-                            .font(.headline)
-                            .foregroundColor(.white)
-                            .padding()
-                            .frame(maxWidth: .infinity)
-                            .background(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(canTrainModel && !trainingManager.isTraining ? Color.blue : Color.gray)
-                            )
-                        }
-                        .disabled(!canTrainModel || trainingManager.isTraining)
-                        .buttonStyle(PlainButtonStyle())
-                    }
-                    
-                    // Clear Canvas Button
-                    Button(action: {
-                        if canvasRef?.hasDrawing() == true {
-                            showingClearConfirmation = true
-                        } else {
-                            showError("Nothing to undo")
-                        }
-                    }) {
-                        HStack {
-                            Image(systemName: "trash.circle.fill")
-                            Text("Clear Canvas")
-                        }
-                        .font(.subheadline)
-                        .foregroundColor(canvasRef?.hasDrawing() == true ? .red : .gray)
-                        .padding(.vertical, 8)
-                        .padding(.horizontal, 16)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill((canvasRef?.hasDrawing() == true ? Color.red : Color.gray).opacity(0.1))
-                        )
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                    .disabled(canvasRef?.hasDrawing() != true)
-                }
-                .padding()
-                .background(Color(.systemBackground))
-                
-                // Labels Preview
-                if !labels.isEmpty {
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            Text("Labels (\(labels.count))")
-                                .font(.headline)
-                            
-                            Spacer()
-                            
-                            NavigationLink(destination: LabelsView()) {
-                                Text("View All")
-                                    .font(.subheadline)
-                                    .foregroundColor(.blue)
-                            }
-                        }
-                        .padding(.horizontal)
-                        
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 12) {
-                                ForEach(labels.prefix(10), id: \.id) { label in
-                                    LabelPreviewCard(label: label)
-                                }
-                            }
-                            .padding(.horizontal)
-                        }
-                    }
-                    .padding(.vertical)
-                    .background(Color(.systemGroupedBackground))
-                }
-                
-                // Training Samples Preview
-                if !trainingSamples.isEmpty {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Recent Samples (\(trainingSamples.count))")
-                            .font(.headline)
-                            .padding(.horizontal)
-                        
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 12) {
-                                ForEach(trainingSamples.suffix(10), id: \.id) { sample in
-                                    TrainingSampleCard(sample: sample)
-                                }
-                            }
-                            .padding(.horizontal)
-                        }
-                    }
-                    .padding(.vertical)
-                    .background(Color(.systemGroupedBackground))
-                }
-                
-                Spacer()
             }
             .navigationTitle("Train")
             .navigationBarTitleDisplayMode(.inline)
@@ -332,6 +123,300 @@ struct TrainView: View {
                 }
             }
         )
+    }
+    
+    // MARK: - iPhone Layout
+    private var iPhoneLayout: some View {
+        VStack(spacing: 0) {
+            // Header
+            trainHeader
+            
+            // Drawing Canvas
+            DrawingCanvas(
+                isEditable: true,
+                backgroundColor: .white,
+                onDrawingChanged: {
+                    // Handle drawing changes if needed
+                },
+                onError: { error in
+                    showError("Couldn't read drawing. Please try again.")
+                }
+            )
+            .frame(maxHeight: 400)
+            .border(Color.gray.opacity(0.3), width: 1)
+            .background(
+                DrawingCanvasWrapper { canvas in
+                    canvasRef = canvas
+                }
+            )
+            
+            // Controls Section
+            trainControlsSection
+            
+            // Labels Preview
+            labelsPreviewSection
+            
+            // Training Samples Preview
+            trainingSamplesPreviewSection
+            
+            Spacer()
+        }
+    }
+    
+    // MARK: - iPad Layout
+    private var iPadLayout: some View {
+        HStack(spacing: 0) {
+            // Left side: Canvas (larger)
+            VStack(spacing: 0) {
+                trainHeader
+                
+                DrawingCanvas(
+                    isEditable: true,
+                    backgroundColor: .white,
+                    onDrawingChanged: {
+                        // Handle drawing changes if needed
+                    },
+                    onError: { error in
+                        showError("Couldn't read drawing. Please try again.")
+                    }
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .border(Color.gray.opacity(0.3), width: 1)
+                .background(
+                    DrawingCanvasWrapper { canvas in
+                        canvasRef = canvas
+                    }
+                )
+            }
+            .frame(maxWidth: .infinity)
+            
+            Divider()
+            
+            // Right side: Controls and previews (side panel)
+            ScrollView {
+                VStack(spacing: 20) {
+                    // Controls Section
+                    trainControlsSection
+                    
+                    // Labels Preview
+                    labelsPreviewSection
+                    
+                    // Training Samples Preview
+                    trainingSamplesPreviewSection
+                }
+                .padding()
+            }
+            .frame(width: 350)
+            .background(Color(.systemGroupedBackground))
+        }
+    }
+    
+    // MARK: - Shared Components
+    private var trainHeader: some View {
+        VStack(spacing: 8) {
+            Text("Train Your Model")
+                .font(.largeTitle)
+                .fontWeight(.bold)
+            
+            if let model = activeModel {
+                HStack {
+                    Text("Model: \(model.name)")
+                        .font(.headline)
+                        .foregroundColor(.blue)
+                    
+                    if trainingManager.hasTrainedModel(for: model.id) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.green)
+                            .font(.caption)
+                    }
+                }
+                
+                if let lastTrained = model.lastTrained {
+                    Text("Last trained: \(lastTrained, style: .relative) ago")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+            
+            Text("Draw something and pick an emoji to teach your model")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding()
+        .background(Color(.systemBackground))
+    }
+    
+    private var trainControlsSection: some View {
+        VStack(spacing: 16) {
+            // Emoji Selection
+            VStack(spacing: 8) {
+                Text("Choose Emoji Label")
+                    .font(.headline)
+                    .foregroundColor(.primary)
+                
+                Button(action: {
+                    showingEmojiPicker = true
+                }) {
+                    HStack {
+                        if selectedEmoji.isEmpty {
+                            Image(systemName: "face.smiling")
+                                .font(.title2)
+                            Text("Pick an Emoji")
+                                .font(.headline)
+                        } else {
+                            Text(selectedEmoji)
+                                .font(.title)
+                            Text("Change Emoji")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .foregroundColor(.primary)
+                    .padding()
+                    .frame(maxWidth: .infinity)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color(.systemGray6))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(selectedEmoji.isEmpty ? Color.orange : Color.blue, lineWidth: 2)
+                            )
+                    )
+                }
+                .buttonStyle(PlainButtonStyle())
+            }
+            
+            // Action Buttons
+            HStack(spacing: 12) {
+                // Add Sample Button
+                Button(action: addSample) {
+                    HStack {
+                        Image(systemName: "plus.circle.fill")
+                        Text("Add Sample")
+                    }
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .padding()
+                    .frame(maxWidth: .infinity)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(canAddSample ? Color.green : Color.gray)
+                    )
+                }
+                .disabled(!canAddSample)
+                .buttonStyle(PlainButtonStyle())
+                
+                // Train Model Button
+                Button(action: trainModel) {
+                    HStack {
+                        if trainingManager.isTraining {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                .scaleEffect(0.8)
+                        } else {
+                            Image(systemName: "brain.head.profile")
+                        }
+                        Text(trainingManager.isTraining ? "Training..." : "Train Model")
+                    }
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .padding()
+                    .frame(maxWidth: .infinity)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(canTrainModel && !trainingManager.isTraining ? Color.blue : Color.gray)
+                    )
+                }
+                .disabled(!canTrainModel || trainingManager.isTraining)
+                .buttonStyle(PlainButtonStyle())
+            }
+            
+            // Clear Canvas Button
+            Button(action: {
+                if canvasRef?.hasDrawing() == true {
+                    showingClearConfirmation = true
+                } else {
+                    showError("Nothing to undo")
+                }
+            }) {
+                HStack {
+                    Image(systemName: "trash.circle.fill")
+                    Text("Clear Canvas")
+                }
+                .font(.subheadline)
+                .foregroundColor(canvasRef?.hasDrawing() == true ? .red : .gray)
+                .padding(.vertical, 8)
+                .padding(.horizontal, 16)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill((canvasRef?.hasDrawing() == true ? Color.red : Color.gray).opacity(0.1))
+                )
+            }
+            .buttonStyle(PlainButtonStyle())
+            .disabled(canvasRef?.hasDrawing() != true)
+        }
+        .padding()
+        .background(Color(.systemBackground))
+        .cornerRadius(12)
+    }
+    
+    private var labelsPreviewSection: some View {
+        Group {
+            if !labels.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text("Labels (\(labels.count))")
+                            .font(.headline)
+                        
+                        Spacer()
+                        
+                        NavigationLink(destination: LabelsView()) {
+                            Text("View All")
+                                .font(.subheadline)
+                                .foregroundColor(.blue)
+                        }
+                    }
+                    .padding(.horizontal)
+                    
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 12) {
+                            ForEach(labels.prefix(10), id: \.id) { label in
+                                LabelPreviewCard(label: label)
+                            }
+                        }
+                        .padding(.horizontal)
+                    }
+                }
+                .padding(.vertical)
+                .background(Color(.systemGroupedBackground))
+                .cornerRadius(12)
+            }
+        }
+    }
+    
+    private var trainingSamplesPreviewSection: some View {
+        Group {
+            if !trainingSamples.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Recent Samples (\(trainingSamples.count))")
+                        .font(.headline)
+                        .padding(.horizontal)
+                    
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 12) {
+                            ForEach(trainingSamples.suffix(10), id: \.id) { sample in
+                                TrainingSampleCard(sample: sample)
+                            }
+                        }
+                        .padding(.horizontal)
+                    }
+                }
+                .padding(.vertical)
+                .background(Color(.systemGroupedBackground))
+                .cornerRadius(12)
+            }
+        }
     }
     
     // MARK: - Computed Properties

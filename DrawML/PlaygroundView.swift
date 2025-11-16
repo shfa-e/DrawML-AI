@@ -105,7 +105,7 @@ struct PlaygroundView: View {
                     }
                     
                     // iPad Side Panel
-                    if UIDevice.current.userInterfaceIdiom == .pad {
+                    if DeviceUtils.isPad {
                         VStack {
                             Spacer()
                             HStack {
@@ -113,7 +113,7 @@ struct PlaygroundView: View {
                                 PlaygroundSidePanel(
                                     recentItems: Array(playgroundItems.suffix(5))
                                 )
-                                .frame(width: 200)
+                                .frame(width: 250)
                                 .padding(.trailing)
                             }
                         }

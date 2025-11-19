@@ -28,6 +28,21 @@ class DataManager: ObservableObject {
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
     private let fileManager = FileManager.default
+    private lazy var playgroundItemsFileURL: URL = {
+        let baseDirectory = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let folderURL = baseDirectory.appendingPathComponent("PlaygroundCache", isDirectory: true)
+        
+        if !fileManager.fileExists(atPath: folderURL.path) {
+            do {
+                try fileManager.createDirectory(at: folderURL, withIntermediateDirectories: true)
+            } catch {
+                print("Failed to create playground cache directory: \(error)")
+            }
+        }
+        
+        return folderURL.appendingPathComponent("playground_items.json")
+    }()
     
     // Data version for migration
     private let currentDataVersion = 1
@@ -444,16 +459,33 @@ class DataManager: ObservableObject {
     }
     
     private func loadPlaygroundItems() throws {
+        // Prefer disk cache, fall back to UserDefaults for legacy data
+        if fileManager.fileExists(atPath: playgroundItemsFileURL.path) {
+            do {
+                let data = try Data(contentsOf: playgroundItemsFileURL)
+                let items = try decoder.decode([PlaygroundItem].self, from: data)
+                playgroundItems = items
+                // Keep UserDefaults copy in sync for export/backups
+                userDefaults.set(data, forKey: Keys.playgroundItems)
+                return
+            } catch {
+                print("Failed to load playground items from disk: \(error)")
+            }
+        }
+        
         guard let data = userDefaults.data(forKey: Keys.playgroundItems) else {
-            return // No data to load
+            playgroundItems = []
+            return
         }
         
         do {
             let items = try decoder.decode([PlaygroundItem].self, from: data)
             playgroundItems = items
+            
+            // Seed disk cache for future launches
+            try data.write(to: playgroundItemsFileURL, options: .atomic)
         } catch {
             print("Failed to decode playground items: \(error)")
-            // Try to recover by loading an empty array
             playgroundItems = []
         }
     }
@@ -461,8 +493,9 @@ class DataManager: ObservableObject {
     private func savePlaygroundItems() {
         do {
             let data = try encoder.encode(playgroundItems)
+            try data.write(to: playgroundItemsFileURL, options: .atomic)
             userDefaults.set(data, forKey: Keys.playgroundItems)
-            print("Playground items saved successfully")
+            print("Playground items saved to disk")
         } catch {
             lastSaveError = "Failed to save playground items: \(error.localizedDescription)"
             print("Save error: \(error)")
@@ -597,6 +630,13 @@ class DataManager: ObservableObject {
         userDefaults.removeObject(forKey: Keys.appSettings)
         userDefaults.removeObject(forKey: Keys.classificationHistory)
         userDefaults.removeObject(forKey: Keys.playgroundItems)
+        if fileManager.fileExists(atPath: playgroundItemsFileURL.path) {
+            do {
+                try fileManager.removeItem(at: playgroundItemsFileURL)
+            } catch {
+                print("Failed to remove playground cache: \(error)")
+            }
+        }
         
         // Create default model
         createDefaultModelIfNeeded()
@@ -628,6 +668,17 @@ class DataManager: ObservableObject {
                 } catch {
                     print("Error calculating model file size: \(error)")
                 }
+            }
+        }
+        
+        if fileManager.fileExists(atPath: playgroundItemsFileURL.path) {
+            do {
+                let attributes = try fileManager.attributesOfItem(atPath: playgroundItemsFileURL.path)
+                if let size = attributes[.size] as? Int64 {
+                    totalSize += size
+                }
+            } catch {
+                print("Error calculating playground cache size: \(error)")
             }
         }
         

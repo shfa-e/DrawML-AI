@@ -116,7 +116,7 @@ struct StrokeData: Codable {
 }
 
 // MARK: - Point Data
-struct PointData: Codable {
+struct PointData: Codable, Equatable {
     let x: Double
     let y: Double
     let pressure: Double
@@ -278,7 +278,7 @@ struct ClassificationResult: Identifiable, Codable {
 }
 
 // MARK: - Playground Items (D-007)
-struct PlaygroundItem: Identifiable, Codable {
+struct PlaygroundItem: Identifiable, Codable, Equatable {
     let id: UUID
     let emoji: String
     let position: PointData
@@ -301,7 +301,7 @@ struct PlaygroundItem: Identifiable, Codable {
 }
 
 // MARK: - Size Data
-struct SizeData: Codable {
+struct SizeData: Codable, Equatable {
     let width: Double
     let height: Double
     

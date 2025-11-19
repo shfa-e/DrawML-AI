@@ -130,6 +130,12 @@ struct PlaygroundView: View {
         .onDisappear {
             cleanup()
         }
+        .onReceive(dataManager.$playgroundItems) { items in
+            guard items != playgroundItems else { return }
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                playgroundItems = items
+            }
+        }
         .alert("Error", isPresented: $showingError) {
             Button("OK") { }
         } message: {

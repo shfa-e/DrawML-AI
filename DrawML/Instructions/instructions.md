@@ -202,7 +202,7 @@
 | **B-015.** Add **Clear Canvas** (F-008) button for resets. |✅
 | **B-016.** Add **Onboarding Tips** (F-011) under Help (S-006). | ✅
 | **B-017.** Make layout adaptive for iPhone/iPad (F-016). | ✅
-| **B-018.** Add local save for Playground emojis (D-007). |
+| **B-018.** Add local save for Playground emojis (D-007). | ✅ |
 | **B-019.** Test all **User Stories (US-001 → US-015)** manually. |
 | **B-020.** Polish visuals and add Dark Mode support (X-004). |
 | **B-021.** Final test: draw many shapes, test shake message, test both iPhone and iPad views. |

@@ -202,14 +202,6 @@ DrawML/
 - Custom drawing tools
 - More recognition feedback options
 
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
-
-## 📄 License
-
-This project is available for use under the MIT License. See LICENSE file for details.
-
 ## 🙏 Acknowledgments
 
 - Built with Apple's Core ML and PencilKit frameworks
